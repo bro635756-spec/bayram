@@ -1,296 +1,86 @@
-/* ==========================================
-   KÜRESEL RESET VE DEĞİŞKEN TANIMLAMALARI
-   ========================================== */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --gold: #FFD700;
   --gold-light: #FFF0A0;
-  --bg-deep: #030a16;
-  --emerald: #00FFCC;
-  --transition-smooth: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+  --bg-deep: #020617;
+  --neon-blue: #00F0FF;
 }
 
 html, body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg-deep);
-  font-family: 'Cinzel Decorative', serif;
-  user-select: none;
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg-deep); font-family: 'Cinzel Decorative', serif; user-select: none;
 }
 
-/* ==========================================
-   PRELOADER SİSTEMİ
-   ========================================== */
+#three-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; }
+#ui-overlay { position: fixed; inset: 0; z-index: 10; pointer-events: none; overflow: hidden; }
+#star-field, #float-emojis { position: absolute; inset: 0; }
+
+/* Loader */
 #loader {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at center, #0a1628 0%, #020814 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  transition: var(--transition-smooth);
+  position: fixed; inset: 0; background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+  display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s ease;
 }
+#loader.hidden { opacity: 0; visibility: hidden; }
+.loader-crescent { font-size: 70px; color: var(--gold); display: block; animation: spin 2s infinite linear; text-align: center;}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.loader-text { color: #white; font-size: 12px; margin-top: 15px; letter-spacing: 2px; }
+.loader-bar { width: 150px; height: 2px; background: rgba(255,255,255,0.1); margin: 10px auto; }
+.loader-progress { width: 50%; height: 100%; background: var(--gold); animation: load 1.2s infinite ease-in-out; }
+@keyframes load { 0%, 100% { transform: translateX(-100%); } 50% { transform: translateX(200%); } }
 
-#loader.hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
+#bg-title { position: absolute; top: 5%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 2s; }
+#bg-title.visible { opacity: 0.6; }
+#bg-title .line1 { font-size: 18px; letter-spacing: 4px; color: var(--gold-light); }
 
-.loader-inner {
-  text-align: center;
-}
-
-.loader-crescent {
-  font-size: 80px;
-  color: var(--gold);
-  display: block;
-  filter: drop-shadow(0 0 35px rgba(255,215,0,0.9));
-  animation: crescentSpin 2.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
-}
-
-.loader-text {
-  color: var(--gold-light);
-  font-size: 14px;
-  margin-top: 20px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.loader-bar {
-  width: 180px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 15px auto 0;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.loader-progress {
-  width: 40%;
-  height: 100%;
-  background: var(--gold);
-  border-radius: 10px;
-  animation: loadBarMove 1.5s ease-in-out infinite;
-}
-
-/* ==========================================
-   ARAYÜZ VE KATMAN YAPILARI (UI OVERLAY)
-   ========================================== */
-#three-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-#ui-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-#star-field {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-}
-
-/* Üst Başlık Grafiği */
-#bg-title {
-  position: absolute;
-  top: 7%;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  opacity: 0;
-  z-index: 5;
-  transition: opacity 2s ease-in-out;
-}
-
-#bg-title.visible {
-  opacity: 1;
-}
-
-#bg-title .line1 {
-  display: block;
-  font-size: clamp(12px, 1.5vw, 24px);
-  letter-spacing: 0.3em;
-  color: rgba(255, 220, 140, 0.5);
-  text-shadow: 0 0 15px rgba(255,200,80,0.3);
-}
-
-#bg-title .line2 {
-  display: block;
-  font-family: 'Amiri', serif;
-  font-size: clamp(10px, 1.1vw, 18px);
-  letter-spacing: 0.35em;
-  color: rgba(0, 255, 204, 0.3);
-  margin-top: 8px;
-}
-
-/* ==========================================
-   EPİK KUTLAMA METNİ (EXPLOSION TEXT)
-   ========================================== */
+/* Patlama ve Buton Konteyneri */
 #explosion-text {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  z-index: 100;
-  text-align: center;
-  opacity: 0;
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+  z-index: 100; text-align: center; opacity: 0; pointer-events: auto;
+}
+#explosion-text.show { animation: reveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+@keyframes reveal { 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+.main-msg {
+  font-size: clamp(24px, 4.5vw, 60px); font-weight: 900;
+  background: linear-gradient(135deg, #FFD700, #FFF, #FFD700); background-size: 200%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 20px rgba(255,215,0,0.5));
+}
+.sub-msg { display: block; font-family: 'Amiri', serif; font-size: 20px; color: #e2e8f0; margin-top: 10px; }
+
+/* İnteraktif Oyun Başlatma Butonu */
+#start-game-btn {
+  margin-top: 30px; padding: 14px 35px; font-family: 'Cinzel Decorative', serif;
+  font-size: 14px; font-weight: bold; color: #020617; background: var(--gold);
+  border: none; border-radius: 50px; cursor: pointer; transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(255,215,0,0.4); pointer-events: auto;
+}
+#start-game-btn:hover {
+  transform: scale(1.1); background: #fff; box-shadow: 0 0 30px #fff;
 }
 
-#explosion-text.show {
-  animation: textReveal 1.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+/* Oyun HUD / Skor Katmanı */
+#game-hud {
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  display: flex; flex-direction: column; justify-content: space-between; padding: 30px;
 }
+.score-board {
+  font-size: 28px; color: var(--neon-blue); font-weight: bold;
+  text-shadow: 0 0 10px var(--neon-blue); pointer-events: auto;
+}
+.game-controls-hint {
+  align-self: center; background: rgba(0,0,0,0.6); color: #fff;
+  padding: 8px 20px; border-radius: 20px; font-size: 12px; letter-spacing: 1px;
+}
+#exit-game-btn {
+  align-self: flex-end; padding: 8px 18px; background: #ef4444; color: #fff;
+  border: none; border-radius: 5px; cursor: pointer; pointer-events: auto; font-family: sans-serif;
+}
+.hidden { display: none !important; }
 
-#explosion-text .main-msg {
-  font-size: clamp(22px, 4vw, 56px);
-  font-weight: 900;
-  background: linear-gradient(135deg, #FFD700 0%, #FFF8B0 35%, #FFD700 65%, #d4af37 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 25px rgba(255,215,0,0.6));
-  animation: shimmerEffect 3s linear infinite;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-
-#explosion-text .sub-msg {
-  display: block;
-  font-family: 'Amiri', serif;
-  font-size: clamp(14px, 2vw, 28px);
-  color: rgba(255, 235, 170, 0.95);
-  letter-spacing: 0.12em;
-  margin-top: 16px;
-  text-shadow: 0 0 10px rgba(0,0,0,0.5);
-}
-
-#explosion-text.fade-out {
-  animation: textFadeAway 0.8s ease-in forwards;
-}
-
-/* ==========================================
-   PARTICLE VE PARÇACIK ANİMASYONLARI
-   ========================================== */
-.star {
-  position: absolute;
-  background: #ffffff;
-  border-radius: 50%;
-  animation: starBlink var(--dur) ease-in-out var(--delay) infinite;
-}
-
-.candy-burst-particle {
-  position: fixed;
-  border-radius: 50%;
-  z-index: 80;
-  animation: burstMove var(--dur) cubic-bezier(0.1, 0.8, 0.25, 1) var(--delay) forwards;
-}
-
-.candy-star {
-  position: fixed;
-  z-index: 85;
-  font-size: var(--size);
-  filter: drop-shadow(0 0 8px rgba(255,255,255,0.4));
-  animation: emojiBurstMove var(--dur) cubic-bezier(0.15, 0.75, 0.3, 1) var(--delay) forwards;
-}
-
-.glow-ring {
-  position: fixed;
-  border-radius: 50%;
-  z-index: 75;
-  border: 3px solid var(--color);
-  transform: translate(-50%, -50%) scale(0);
-  animation: ringExpand var(--dur) ease-out var(--delay) forwards;
-}
-
-.float-emoji {
-  position: absolute;
-  font-size: 34px;
-  opacity: 0;
-  filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
-  animation: upwardFloat var(--dur) linear var(--delay) infinite;
-}
-
-/* ==========================================
-   ANIMATION KEYFRAMES DEFINITIONS
-   ========================================== */
-@keyframes crescentSpin {
-  0% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.15); }
-  100% { transform: rotate(360deg) scale(1); }
-}
-
-@keyframes loadBarMove {
-  0% { transform: translateX(-150%); }
-  50% { transform: translateX(150%); }
-  100% { transform: translateX(-150%); }
-}
-
-@keyframes starBlink {
-  0%, 100% { opacity: var(--base-op); transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.8); }
-}
-
-@keyframes textReveal {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(-8deg); }
-  70% { opacity: 1; transform: translate(-50%, -50%) scale(1.08) rotate(1deg); }
-  100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-}
-
-@keyframes textFadeAway {
-  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0px); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); filter: blur(5px); }
-}
-
-@keyframes shimmerEffect {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-
-@keyframes burstMove {
-  0% { transform: translate(0, 0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
-}
-
-@keyframes emojiBurstMove {
-  0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 0; }
-  15% { opacity: 1; transform: translate(calc(var(--tx)*0.15), calc(var(--ty)*0.15)) scale(1.3) rotate(45deg); }
-  100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0; }
-}
-
-@keyframes ringExpand {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; box-shadow: inset 0 0 20px var(--color), 0 0 30px var(--color); }
-  100% { transform: translate(-50%, -50%) scale(6.5); opacity: 0; filter: blur(2px); }
-}
-
-@keyframes upwardFloat {
-  0% { transform: translateY(105vh) translateX(0) rotate(0deg) scale(0); opacity: 0; }
-  10% { opacity: 0.65; transform: translateY(80vh) translateX(var(--drift)) rotate(15deg) scale(1); }
-  90% { opacity: 0.35; transform: translateY(-10vh) translateX(calc(var(--drift)*2.5)) rotate(320deg) scale(0.8); }
-  100% { transform: translateY(-20vh) translateX(calc(var(--drift)*3)) rotate(360deg) scale(0); opacity: 0; }
-}
-
-/* Mobil Optimizasyon */
-@media (max-width: 600px) {
-  #explosion-text .main-msg {
-    font-size: 20px;
-    white-space: normal;
-    padding: 0 15px;
-  }
-  .float-emoji { font-size: 24px; }
-}
+/* Parçacıklar */
+.star { position: absolute; background: #fff; border-radius: 50%; animation: blink var(--dur) infinite var(--delay); }
+@keyframes blink { 0%,100% { opacity: 0.3; } 50% { opacity: 1; transform: scale(1.5); } }
+.candy-burst-particle { position: fixed; border-radius: 50%; animation: burst var(--dur) forwards; }
+@keyframes burst { 100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+.float-emoji { position: absolute; font-size: 28px; animation: floatUp var(--dur) linear infinite; opacity: 0; }
+@keyframes floatUp { 0% { transform: translateY(105vh) rotate(0deg); opacity: 0; } 10% { opacity: 0.5; } 90% { opacity: 0.5; } 100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; } }
