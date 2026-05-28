@@ -3,13 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kurban Bayramınız Mübarek Olsun 🌙</title>
-  <meta name="description" content="3D WebGL Kurban Bayramı Animasyonu" />
-  
+  <title>Kurban Bayramı Özel & 3.5D Mini Oyun</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cinzel+Decorative:wght@400;700;900&display=swap" rel="stylesheet" />
-  
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -17,7 +14,7 @@
   <div id="loader">
     <div class="loader-inner">
       <span class="loader-crescent">☪</span>
-      <div class="loader-text">WebGL Sahnesi Yükleniyor...</div>
+      <div class="loader-text">Gelişmiş Assetler Yükleniyor...</div>
       <div class="loader-bar"><div class="loader-progress"></div></div>
     </div>
   </div>
@@ -26,18 +23,23 @@
 
   <div id="ui-overlay">
     <div id="star-field"></div>
-
     <div id="bg-title">
       <span class="line1">✦ &nbsp; K U R B A N &nbsp; B A Y R A M I &nbsp; ✦</span>
-      <span class="line2">☪ &nbsp; Mübarek Olsun &nbsp; ☪</span>
     </div>
-
     <div id="float-emojis"></div>
 
     <div id="explosion-text">
       <span class="main-msg">Kurban Bayramınız Kutlu Olsun</span>
       <span class="sub-msg">🌙 Bereket, Huzur ve Sağlık Getirmesi Dileğiyle 🤲</span>
+      
+      <button id="start-game-btn">3.5D Bayram Oyununu Başlat 🚀</button>
     </div>
+  </div>
+
+  <div id="game-hud" class="hidden">
+    <div class="score-board">Skor: <span id="score-val">0</span></div>
+    <div class="game-controls-hint">Yön Tuşları (A/D veya Sol/Sağ Ok) ile Kaç!</div>
+    <button id="exit-game-btn">Oyundan Çık</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
