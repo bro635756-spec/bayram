@@ -1,203 +1,140 @@
-
 /**
  * ============================================================
- * MAIN EXECUTION CONTROL & RENDER ENGINE LOOP
- * Projenin ana yürütücüsüdür. Döngü aşamalarını (Büyüme, Bekleme, Patlama)
- * yönetir, zamansal takipleri sağlar ve boot işlemini gerçekleştirir.
+ * MAIN EXECUTION CONTROL (GÜNCELLENDİ)
+ * Animasyon döngüsü ile oyun döngüsünü senkronize eden ana omurga.
  * ============================================================
  */
 
-let currentPhase = 'idle'; // Aşamalar: idle | growing | holding | exploding
+let currentPhase = 'idle';
 let timeElapsed = 0;
 let progressGrow = 0;
 let progressHold = 0;
-let isExploded = false;
+let autoResetTimeout;
 
 function buildUIStarField() {
-  const starFieldContainer = DOM.$('star-field');
+  const container = DOM.$('star-field');
   for (let i = 0; i < BayramConfig.timing.starCount; i++) {
     const star = DOM.create('div');
     star.className = 'star';
-    const size = MathUtils.rand(1, 3.2);
+    const size = MathUtils.rand(1, 2.5);
     star.style.cssText = `
       width: ${size}px; height: ${size}px;
       left: ${MathUtils.rand(0, 100)}%; top: ${MathUtils.rand(0, 100)}%;
-      --dur: ${MathUtils.rand(3.5, 9)}s; --delay: ${MathUtils.rand(0, 8)}s;
-      --base-op: ${MathUtils.rand(0.2, 0.65)};
+      --dur: ${MathUtils.rand(3, 7)}s; --delay: ${MathUtils.rand(0, 5)}s;
     `;
-    DOM.append(starFieldContainer, star);
+    DOM.append(container, star);
   }
 }
 
 function runFloatingUiEmojis() {
   const container = DOM.$('float-emojis');
   for (let i = 0; i < BayramConfig.timing.emojiCount; i++) {
-    const floatEmoji = DOM.create('div');
-    floatEmoji.className = 'float-emoji';
-    floatEmoji.textContent = BayramConfig.assets.floatingItems[i % BayramConfig.assets.floatingItems.length];
-    
-    const duration = MathUtils.rand(11, 22);
-    const delay = MathUtils.rand(0, 16);
-    const leftPosition = MathUtils.rand(2, 96);
-    const horizontalDrift = MathUtils.rand(-90, 90);
-
-    floatEmoji.style.cssText = `
-      left: ${leftPosition}%;
-      --dur: ${duration}s; --delay: ${delay}s;
-      --drift: ${horizontalDrift}px;
+    const emoji = DOM.create('div');
+    emoji.className = 'float-emoji';
+    emoji.textContent = BayramConfig.assets.floatingItems[i % BayramConfig.assets.floatingItems.length];
+    emoji.style.cssText = `
+      left: ${MathUtils.rand(5, 95)}%;
+      --dur: ${MathUtils.rand(10, 20)}s;
+      animation-delay: ${MathUtils.rand(-15, 0)}s;
     `;
-    DOM.append(container, floatEmoji);
+    DOM.append(container, emoji);
   }
 }
 
-// Büyüme ve Patlama Döngüsünü Sıfırlayan / Başlatan Merkez Kontrolör
 function startCelebrationCycle() {
+  if (gameActive) return; // Oyun aktifse döngüyü kilitle
   currentPhase = 'growing';
-  isExploded = false;
   progressGrow = 0;
   progressHold = 0;
-  
-  // Ana 3D nesneleri sıfırlama
+
   bayramGroup.position.set(0, 0, 0);
   bayramGroup.scale.setScalar(0);
-  bayramGroup.rotation.set(0, 0, 0);
-
-  // 3D Parçacıkları temizleme ve yeniden inşası
   build3DFragments();
-  rings.forEach(r => scene.remove(r.mesh));
-  rings = [];
 
-  // DOM Arayüz Metinlerini Gizleme
   const txtOverlay = DOM.$('explosion-text');
-  txtOverlay.classList.remove('show', 'fade-out');
-  txtOverlay.style.opacity = '0';
+  txtOverlay.classList.remove('show');
 }
 
 function processExplosionTrigger() {
-  if (isExploded) return;
-  isExploded = true;
   currentPhase = 'exploding';
-
-  // Ekran merkezinde CSS Patlama Fırtınası
   triggerCssExplosion(window.innerWidth / 2, window.innerHeight / 2);
-  
-  // WebGL Patlama Şok Dalgaları
-  trigger3DRings();
-  
-  // 3D Parçacıkları Aktif Etme
   fragments.forEach(f => { f.active = true; f.mesh.scale.setScalar(1); });
 
-  // Hilal ve Yıldız Modelini Şişirerek Patlatma Efekti (GSAP)
   gsap.to(bayramGroup.scale, {
-    x: 1.8, y: 1.8, z: 1.8,
-    duration: 0.22,
-    ease: 'power2.out',
-    onComplete: () => {
-      gsap.to(bayramGroup.scale, { x: 0, y: 0, z: 0, duration: 0.24, ease: 'power4.in' });
-    }
+    x: 1.6, y: 1.6, z: 1.6, duration: 0.2, yoyo: true, repeat: 1
   });
 
-  // Patlama Işık Flaşı Efekti
-  gsap.to(goldPointLight, { intensity: 38, duration: 0.08, yoyo: true, repeat: 5 });
-  gsap.to(pinkPointLight, { intensity: 22, duration: 0.1, yoyo: true, repeat: 3 });
+  // Yazıyı ve OYUNU BAŞLAT butonunu göster
+  DOM.$('explosion-text').classList.add('show');
 
-  // Sinematik Kamera Sarsıntısı (Camera Shake)
-  const shakeTimeline = gsap.timeline();
-  for (let i = 0; i < 11; i++) {
-    shakeTimeline.to(camera.position, {
-      x: MathUtils.rand(-0.65, 0.65),
-      y: MathUtils.rand(-0.45, 0.45),
-      duration: 0.06,
-      ease: 'none'
-    });
-  }
-  shakeTimeline.to(camera.position, { x: 0, y: 0, z: 24, duration: 0.55, ease: 'power3.out' });
-
-  // Kutlama Yazısının Ekrana Girişi
-  setTimeout(() => {
-    DOM.$('explosion-text').classList.add('show');
-  }, 450);
-
-  // RESET DELAY Sonrası Döngüyü Başa Sarma Otomasyonu
-  setTimeout(() => {
-    DOM.$('explosion-text').classList.add('fade-out');
-    setTimeout(() => startCelebrationCycle(), 1000);
+  // Kullanıcı butona basmazsa 6 saniye sonra döngü kendini otomatik tazeler
+  autoResetTimeout = setTimeout(() => {
+    if (!gameActive) startCelebrationCycle();
   }, BayramConfig.timing.resetDelay);
 }
 
-// ANA RENDER LOOPU (60 FPS Tarayıcı Senkronizasyonu)
-const mainClock = new THREE.Clock();
+// RENDER LOOP
+const clock = new THREE.Clock();
 
 function mainRenderLoop() {
   requestAnimationFrame(mainRenderLoop);
-  
-  const delta = Math.min(mainClock.getDelta(), 0.045); // Delta sabitleme (Kasmaları önler)
+  const delta = Math.min(clock.getDelta(), 0.05);
   timeElapsed += delta;
 
-  // Kozmik Arka Plan Tozlarının Sürekli Akışı
-  if (window._cosmicDust) {
-    window._cosmicDust.rotation.y += delta * 0.018;
-    window._cosmicDust.rotation.x += delta * 0.004;
-  }
+  if (!gameActive) {
+    // 1. ANİMASYON MODU ÇALIŞIYORSA
+    if (starMesh) starMesh.rotation.z -= delta * 0.5;
 
-  // Yıldızın Kendi Ekseni Etrafında Dönüşü
-  if (starMesh) {
-    starMesh.rotation.z -= delta * 0.75;
-  }
-
-  // FAZ 1: OBJELERİN DOĞAL VE AKICI BÜYÜME DÖNGÜSÜ
-  if (currentPhase === 'growing') {
-    progressGrow += delta / BayramConfig.timing.growDuration;
-    if (progressGrow >= 1) {
-      progressGrow = 1;
-      currentPhase = 'holding';
+    if (currentPhase === 'growing') {
+      progressGrow += delta / BayramConfig.timing.growDuration;
+      if (progressGrow >= 1) currentPhase = 'holding';
+      const ease = MathUtils.easeInOutCubic(progressGrow);
+      bayramGroup.scale.setScalar(ease * 1.2);
+      bayramGroup.rotation.y += delta * 0.5;
     }
 
-    const easeFactor = MathUtils.easeInOutCubic(progressGrow);
-    bayramGroup.scale.setScalar(easeFactor * 1.25);
-    bayramGroup.rotation.y += delta * (0.22 + easeFactor * 0.65);
-    bayramGroup.position.y = Math.sin(timeElapsed * 1.8) * 0.25; // Havada süzülme dalgası
-  }
-
-  // FAZ 2: GERİLİM / TİTREME VE SIKIŞMA AŞAMASI (PATLAMA ÖNCESİ)
-  if (currentPhase === 'holding') {
-    progressHold += delta / BayramConfig.timing.holdDuration;
-    
-    const strainFactor = 1.25 + progressHold * 0.35; // Obje giderek şişer
-    const trembleAmount = progressHold * 0.16;       // Titreme şiddeti artar
-    const trembleShake = Math.sin(timeElapsed * 35) * trembleAmount;
-
-    bayramGroup.scale.setScalar(strainFactor + Math.abs(trembleShake) * 0.06);
-    bayramGroup.position.x = trembleShake;
-    bayramGroup.rotation.y += delta * (0.85 + progressHold * 4.5); // Dönüş aşırı hızlanır
-
-    if (progressHold >= 1) {
-      processExplosionTrigger();
+    if (currentPhase === 'holding') {
+      progressHold += delta / BayramConfig.timing.holdDuration;
+      bayramGroup.scale.setScalar(1.2 + progressHold * 0.2);
+      bayramGroup.rotation.y += delta * (0.5 + progressHold * 3);
+      if (progressHold >= 1) processExplosionTrigger();
     }
+  } else {
+    // 2. OYUN MODU ÇALIŞIYORSA
+    updateGameLogic(delta);
   }
 
-  // Parçacık ve Şok Dalgalarının Fizik Motorunu Güncelleme
-  updateParticlesAndRings(delta);
-
-  // Render Kararı
+  updateParticles(delta);
   renderer.render(scene, camera);
 }
 
-// SİSTEM BOOT EDİCİ (Açılış Tetikleyicisi)
+// INTERAKTIF BUTON EVENT DİNLEYİCİLERİ
+function setupUiInteractions() {
+  DOM.$('start-game-btn').addEventListener('click', () => {
+    clearTimeout(autoResetTimeout); // Otomatik döngü sıfırlamasını iptal et
+    DOM.$('explosion-text').classList.remove('show');
+    DOM.$('game-hud').classList.remove('hidden');
+    start3DGameMode();
+  });
+
+  DOM.$('exit-game-btn').addEventListener('click', () => {
+    endGame(true);
+  });
+}
+
+// BOOT SİSTEMİ
 window.addEventListener('load', () => {
   buildUIStarField();
   runFloatingUiEmojis();
   init3DEngine();
   initParticleSystems();
-  
+  setupUiInteractions();
+
   mainRenderLoop();
 
-  // Arka plan transparan başlığını yansıt
-  setTimeout(() => { DOM.$('bg-title').classList.add('visible'); }, 500);
-
-  // Loader'ı kaldır ve sistemi başlat
+  setTimeout(() => { DOM.$('bg-title').classList.add('visible'); }, 400);
   setTimeout(() => {
     DOM.$('loader').classList.add('hidden');
-    setTimeout(() => startCelebrationCycle(), 350);
-  }, 1300);
+    startCelebrationCycle();
+  }, 1000);
 });
