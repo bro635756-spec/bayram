@@ -1,170 +1,200 @@
 /**
  * ============================================================
- * THREE.JS ENGINE CORE & MODEL GRAPHICS
- * Sahne kurulumu, kamera kontrolleri, ışıklandırma mimarisi
- * ve 3D Hilal ile Parıldayan Yıldız modellemeleri.
+ * THREE.JS ENGINE CORE & GAME OBJECTS (GÜNCELLENDİ)
+ * Bayram animasyonu modellerine ek olarak 3.5D oyun içi 
+ * Oyuncu (Gemi/Karakter) ve Engel (Göktaşları/Koyunlar) yönetimi.
  * ============================================================
  */
 
-// Global WebGL Nesneleri Havuzu
-let scene, camera, renderer, keyLight, goldPointLight, pinkPointLight;
-let bayramGroup, starMesh, glowSprite;
+let scene, camera, renderer, keyLight, goldPointLight;
+let bayramGroup, starMesh;
+
+// Oyun İçi Aktif Nesneler
+let gameActive = false;
+let playerMesh;
+let obstacles = [];
+let gameScore = 0;
+let obstacleSpawnTimer;
+
+// Oyuncu Kontrol Mekaniği Durumu
+const keys = { Left: false, Right: false };
 
 function init3DEngine() {
   const canvas = DOM.$('three-canvas');
-  
-  // Renderer Kurulumu ve Tonemapping Optimizasyonu
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.45;
 
-  // Sahne ve Atmosferik Sis (Fog) Tanımlaması
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(BayramConfig.colors.fogColor, 0.015);
+  scene.fog = new THREE.FogExp2(BayramConfig.colors.fogColor, 0.012);
 
-  // Kamera Kurulumu
-  camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 300);
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
   camera.position.set(0, 0, 24);
 
-  // Global Resize Dinamiği
-  window.addEventListener('resize', onWindowResize);
-
-  // Işıklandırma Tasarımı
   setupLighting();
-
-  // Arka Plan Toz Efekti (Cosmic Dust Particles)
-  createCosmicDust();
-
-  // Ana Bayram Model Grubu İnşası
   buildBayramModels();
+  setupInputListeners();
+
+  window.addEventListener('resize', onWindowResize);
 }
 
 function setupLighting() {
-  // Ambians Işığı
-  const ambientLight = new THREE.AmbientLight(BayramConfig.colors.ambientColor, 0.85);
+  const ambientLight = new THREE.AmbientLight(BayramConfig.colors.ambientColor, 1.2);
   scene.add(ambientLight);
 
-  // Ana Karakteristik Yönlü Işık
-  keyLight = new THREE.DirectionalLight(BayramConfig.colors.directionalColor, 3.2);
-  keyLight.position.set(6, 9, 11);
+  keyLight = new THREE.DirectionalLight(BayramConfig.colors.directionalColor, 2.5);
+  keyLight.position.set(5, 10, 8);
   scene.add(keyLight);
 
-  // Noktasal Yoğun Altın Işığı
-  goldPointLight = new THREE.PointLight(BayramConfig.colors.pointGold, 5, 45);
-  goldPointLight.position.set(0, 2, 6);
+  goldPointLight = new THREE.PointLight(BayramConfig.colors.pointGold, 3, 50);
+  goldPointLight.position.set(0, 0, 5);
   scene.add(goldPointLight);
-
-  // Atmosferik Pembe / Mor Kontrast Nokta Işık
-  pinkPointLight = new THREE.PointLight(0xFF00AA, 3, 35);
-  pinkPointLight.position.set(-6, -3, 4);
-  scene.add(pinkPointLight);
-}
-
-function createCosmicDust() {
-  const geometry = new THREE.BufferGeometry();
-  const count = 650;
-  const positions = new Float32Array(count * 3);
-
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = MathUtils.rand(-55, 55);
-    positions[i * 3 + 1] = MathUtils.rand(-35, 35);
-    positions[i * 3 + 2] = MathUtils.rand(-45, 5);
-  }
-
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  
-  const material = new THREE.PointsMaterial({
-    color: 0x00FFDD,
-    size: 0.085,
-    transparent: true,
-    opacity: 0.45,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-
-  const dustPoints = new THREE.Points(geometry, material);
-  scene.add(dustPoints);
-  window._cosmicDust = dustPoints; // Render loop erişimi için global atama
 }
 
 function buildBayramModels() {
   bayramGroup = new THREE.Group();
   scene.add(bayramGroup);
-  bayramGroup.scale.setScalar(0); // Başlangıçta gizli
 
-  // Gelişmiş Metalik PBR Malzeme Özellikleri (Altın Kaplama)
   const goldMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xFFD700,
-    metalness: 0.95,
-    roughness: 0.12,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.08,
-    emissive: 0x2b1f00,
-    side: THREE.DoubleSide
+    color: 0xFFD700, metalness: 0.9, roughness: 0.15, clearcoat: 1.0
   });
 
-  // 1. ZARİF 3D HİLAL MODELİ (Torus Kesit Geometrisi Tabanlı)
-  const crescentGroup = new THREE.Group();
-  const crescentGeo = new THREE.TorusGeometry(3.6, 0.85, 32, 120, Math.PI * 1.12);
+  // Gelişmiş Hilal Geometrisi
+  const crescentGeo = new THREE.TorusGeometry(3.5, 0.8, 24, 80, Math.PI * 1.1);
   const crescentMesh = new THREE.Mesh(crescentGeo, goldMaterial);
-  crescentMesh.rotation.z = -Math.PI * 0.56; // Hilali dik konuma getirme simetrisi
-  crescentGroup.add(crescentMesh);
-  bayramGroup.add(crescentGroup);
+  crescentMesh.rotation.z = -Math.PI * 0.55;
+  bayramGroup.add(crescentMesh);
 
-  // 2. 3D BAYRAM YILDIZI MODELİ (Shape Extrusion)
+  // Yıldız Geometrisi
   const starShape = new THREE.Shape();
-  const starPoints = 5;
-  const outerR = 1.25;
-  const innerR = 0.52;
+  const points = 5;
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? 1.2 : 0.5;
+    const a = (i / (points * 2)) * BayramConfig.TAU - Math.PI / 2;
+    starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.3, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05 });
+  starMesh = new THREE.Mesh(starGeo, new THREE.MeshPhysicalMaterial({ color: 0xFFFFFF, metalness: 0.2, roughness: 0.1, emissive: 0xFFD700 }));
+  starMesh.position.set(1.5, 0, 0);
+  bayramGroup.add(starMesh);
+}
 
-  for (let i = 0; i < starPoints * 2; i++) {
-    const radius = i % 2 === 0 ? outerR : innerR;
-    const angle = (i / (starPoints * 2)) * BayramConfig.TAU - Math.PI / 2;
-    starShape.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+// ============================================================
+// OYUN MOTORU PARÇASI (3.5D MODU)
+// ============================================================
+
+function setupInputListeners() {
+  window.addEventListener('keydown', e => {
+    if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.Left = true;
+    if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.Right = true;
+  });
+  window.addEventListener('keyup', e => {
+    if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.Left = false;
+    if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.Right = false;
+  });
+}
+
+function start3DGameMode() {
+  gameActive = true;
+  gameScore = 0;
+  DOM.$('score-val').textContent = gameScore;
+
+  // Ana logoyu sahneden uzaklaştır/gizle
+  gsap.to(bayramGroup.scale, { x: 0, y: 0, z: 0, duration: 0.5 });
+  
+  // Kamerayı oyun açısına getir (3.5D Arkadan Takip / Kuş Bakışı Eğimi)
+  gsap.to(camera.position, { x: 0, y: 5, z: 18, duration: 1.2 });
+  gsap.to(camera.rotation, { x: -0.25, duration: 1.2 });
+
+  // Oyuncu Aracını Yarat (Kristal Neon Piramit)
+  const playerGeo = new THREE.ConeGeometry(0.8, 1.8, 4);
+  const playerMat = new THREE.MeshStandardMaterial({ color: 0x00FFFF, emissive: 0x005577, roughness: 0.2 });
+  playerMesh = new THREE.Mesh(playerGeo, playerMat);
+  playerMesh.rotation.x = Math.PI / 2; // Yola doğru yatır
+  playerMesh.position.set(0, 0, 8);
+  scene.add(playerMesh);
+
+  // Engelleri Sürekli Spawn Etme Döngüsü
+  obstacleSpawnTimer = setInterval(spawnObstacle, BayramConfig.game.spawnInterval);
+}
+
+function spawnObstacle() {
+  if (!gameActive) return;
+
+  // Rastgele Yol Tercihi (Sol, Orta, Sağ)
+  const lanes = [-BayramConfig.game.laneWidth, 0, BayramConfig.game.laneWidth];
+  const chosenLane = lanes[MathUtils.randInt(0, lanes.length)];
+
+  // Kozmik Bayram Engeli (Küremsi Geometrik Kaya Başlıkları)
+  const obsGeo = new THREE.IcosahedronGeometry(MathUtils.rand(0.6, 1.1), 0);
+  const obsMat = new THREE.MeshStandardMaterial({
+    color: BayramConfig.colors.particleColors[MathUtils.randInt(0, BayramConfig.colors.particleColors.length)],
+    roughness: 0.8
+  });
+  const obsMesh = new THREE.Mesh(obsGeo, obsMat);
+  
+  // İleriden (Z derinliğinden) spawn etme (3.5D Akış Hissi)
+  obsMesh.position.set(chosenLane, 0, -40);
+  scene.add(obsMesh);
+  obstacles.push(obsMesh);
+}
+
+function updateGameLogic(delta) {
+  if (!gameActive) return;
+
+  // Oyuncu Hareketi Sınırlandırması
+  if (keys.Left && playerMesh.position.x > -BayramConfig.game.laneWidth) {
+    playerMesh.position.x -= BayramConfig.game.playerSpeed * delta;
+  }
+  if (keys.Right && playerMesh.position.x < BayramConfig.game.laneWidth) {
+    playerMesh.position.x += BayramConfig.game.playerSpeed * delta;
   }
 
-  const extrusionSettings = {
-    depth: 0.35,
-    bevelEnabled: true,
-    bevelSegments: 4,
-    steps: 1,
-    bevelSize: 0.08,
-    bevelThickness: 0.08
-  };
+  // Engelleri Üzerimize Doğru Akıtma (Z Ekseni Derinlik Hareketi)
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obs = obstacles[i];
+    obs.position.z += BayramConfig.game.obstacleSpeed * delta;
+    obs.rotation.x += delta * 2;
+    obs.rotation.y += delta * 1;
 
-  const starGeo = new THREE.ExtrudeGeometry(starShape, extrusionSettings);
+    // AABB Çarpışma Testi (Collision Detection)
+    if (playerMesh && obs.position.distanceTo(playerMesh.position) < 1.4) {
+      endGame(false); // Çarpışma gerçekleşti, oyun bitti.
+      return;
+    }
+
+    // Ekranın arkasına geçen engelleri temizle ve skor ekle
+    if (obs.position.z > 15) {
+      scene.remove(obs);
+      obstacles.splice(i, 1);
+      gameScore += 10;
+      DOM.$('score-val').textContent = gameScore;
+    }
+  }
+}
+
+function endGame(completedCleanly = true) {
+  gameActive = false;
+  clearInterval(obstacleSpawnTimer);
+
+  // Sahnedeki engelleri temizle
+  obstacles.forEach(obs => scene.remove(obs));
+  obstacles = [];
+
+  if (playerMesh) {
+    scene.remove(playerMesh);
+    playerMesh = null;
+  }
+
+  // HUD Kapat, Eski Arayüze Dön
+  DOM.$('game-hud').classList.add('hidden');
   
-  const starMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xFFFFFF,
-    metalness: 0.4,
-    roughness: 0.05,
-    emissive: 0xFFD700,
-    emissiveIntensity: 1.4,
-    clearcoat: 1.0
-  });
+  // Kamerayı eski haline getir
+  gsap.to(camera.position, { x: 0, y: 0, z: 24, duration: 1 });
+  gsap.to(camera.rotation, { x: 0, y: 0, z: 0, duration: 1 });
 
-  starMesh = new THREE.Mesh(starGeo, starMaterial);
-  starMesh.position.set(1.6, 0.2, 0); // Hilalin iç kavis boşluğuna konumlandırma
-  bayramGroup.add(starMesh);
-
-  // 3. MATERYAL GLOW SPRITE EFECT (Yıldız Parıltısı)
-  const canvasGlow = document.createElement('canvas');
-  canvasGlow.width = canvasGlow.height = 256;
-  const ctx = canvasGlow.getContext('2d');
-  const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  gradient.addColorStop(0, 'rgba(255,225,50,1)');
-  gradient.addColorStop(0.25, 'rgba(255,140,0,0.45)');
-  gradient.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 256, 256);
-
-  const textureGlow = new THREE.CanvasTexture(canvasGlow);
-  const spriteMat = new THREE.SpriteMaterial({ map: textureGlow, blending: THREE.AdditiveBlending, depthWrite: false });
-  glowSprite = new THREE.Sprite(spriteMat);
-  glowSprite.scale.set(19, 19, 1);
-  starMesh.add(glowSprite);
+  // Animasyon döngüsünü baştan başlat
+  startCelebrationCycle();
 }
 
 function onWindowResize() {
